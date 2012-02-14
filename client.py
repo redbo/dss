@@ -11,11 +11,11 @@ class ProxyObject(object):
         return ProxyObject(self.client, self.lookup_list + [key])
 
     def __contains__(self, key):
-        return self.client.call(self.lookup_list, '__contains__', (key), ())
+        return self.client.call(self.lookup_list, '__contains__', (key,), {})
 
     def __setitem__(self, key, value):
         return self.client.call(self.lookup_list, '__setitem__',
-                    (key, value), ())
+                    (key, value), {})
 
 
 class Client(object):
@@ -34,3 +34,13 @@ class Client(object):
 
     def proxy_object(self, key):
         return ProxyObject(self, [key])
+
+    def create_object(self, key, value):
+        return self.call([], '__setitem__', (key, value), {})
+
+x = Client('localhost', 12345)
+x.create_object('something', {})
+y = x.proxy_object('something')
+y['blah'] = [1, 2, 3]
+print 2 in y['blah']
+

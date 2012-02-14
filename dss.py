@@ -7,21 +7,22 @@ import select
 data = {}
 
 
-def serve(sock):
+def serve(server_sock):
     epoll = select.epoll()
-    epoll.register(sock.fileno(), select.EPOLLIN)
+    epoll.register(server_sock.fileno(), select.EPOLLIN)
     conns = {}
     packer = msgpack.Packer()
     while True:
         for (fd, event) in epoll.poll():
             try:
-                if fd == sock.fileno():
-                    sock, address = sock.accept()
+                if fd == server_sock.fileno():
+                    sock, address = server_sock.accept()
                     epoll.register(sock.fileno(), select.EPOLLIN)
-                    conns[sock.fileno()] = (sock, msgpack.Unpacker(), '')
+                    conns[sock.fileno()] = [sock, msgpack.Unpacker(), '']
                 elif event == select.EPOLLIN:
-                    conns[fd][1].feed(sock.recv(65536))
-                    for obj in unpacker:
+                    conns[fd][1].feed(conns[fd][0].recv(65536))
+                    for obj in conns[fd][1]:
+                        print obj
                         op, lookup, func, args, kwargs = obj
                         value = data
                         for name in lookup:
@@ -54,4 +55,3 @@ def listen_socket(port):
 
 if __name__ == '__main__':
     serve(listen_socket(12345))
-
