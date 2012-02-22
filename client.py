@@ -32,15 +32,14 @@ class Client(object):
             for response in self.unpacker:
                 return response
 
-    def proxy_object(self, key):
+    def __getitem__(self, key):
         return ProxyObject(self, [key])
 
-    def create_object(self, key, value):
+    def __setitem__(self, key, value):
         return self.call([], '__setitem__', (key, value), {})
 
 x = Client('localhost', 12345)
-x.create_object('something', {})
-y = x.proxy_object('something')
-y['blah'] = [1, 2, 3]
-print 2 in y['blah']
+x['something'] = {}
+x['something']['blah'] = [1, 2, 3]
+print 2 in x['something']['blah']
 
