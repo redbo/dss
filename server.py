@@ -2,7 +2,6 @@ import msgpack
 import socket
 import errno
 import select
-import threading
 
 
 data = {}
