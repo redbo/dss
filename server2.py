@@ -12,40 +12,51 @@ PROXIES = 8
 
 BASE_BACKEND = 22222
 
+READ_CHUNK = 65536
+
 class StreamUnpacker(msgpack.Unpacker):
     def readnext(self, sock):
         while True:
-            self.feed(sock.recv(65536))
+            chunk = sock.recv(READ_CHUNK)
+            if not chunk:
+                raise Exception()
+            self.feed(chunk)
             for obj in self:
                 return obj
 
 
+def recv_to(sock, current, size):
+    while len(current) < size:
+        chunk = sock.recv(READ_CHUNK)
+        if not chunk:
+            raise Exception()
+        current += chunk
+    return current[:size], current[size:]
+
+
 def serve_proxy(sock, address):
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     buf = ''
     buf2 = ''
     while True:
-        while len(buf) < 8:
-            buf += sock.recv(65536)
-        length, hash_ = struct.unpack('II', buf[:8])
-        buf = buf[8:]
-        while len(buf) < length:
-            buf += sock.recv(65536)
+        packed_data, buf = recv_to(sock, buf, 8)
+        length, hash_ = struct.unpack('II', packed_data)
+        msg, buf = recv_to(sock, buf, length)
+
         port = int(BASE_BACKEND + (hash_ % WORKERS))
         backend = socket.create_connection(('127.0.0.1', port))
         try:
-            backend.sendall(buf[:length])
-
-            while len(buf2) < 4:
-                buf2 += sock.recv(65536)
-            length, = struct.unpack('I', buf2[:4])
-            while len(buf2) < length + 4:
-                buf2 += sock.recv(65536)
-            sock.sendall(buf2)
+            backend.sendall(msg)
+            packed_length, buf2 = recv_to(backend, buf2, 4)
+            length, = struct.unpack('I', packed_length)
+            response, buf2 = recv_to(backend, buf2, length)
+            sock.sendall(response)
         finally:
             backend.close()
 
 
 def serve_worker(sock, address):
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     packer = msgpack.Packer()
     unpacker = StreamUnpacker()
     while True:
@@ -67,10 +78,11 @@ def serve(sock, target):
 
 if __name__ == '__main__':
     workers = [multiprocessing.Process(target=serve, args=(
-        socket.tcp_listener(('127.0.0.1', BASE_BACKEND + x), backlog=50, reuse_addr=True), serve_worker)
-        ) for x in xrange(WORKERS)]
+        socket.tcp_listener(('127.0.0.1', BASE_BACKEND + x), backlog=50,
+        reuse_addr=True), serve_worker)) for x in xrange(WORKERS)]
     front_sock = socket.tcp_listener(('', 12345), backlog=50, reuse_addr=True)
-    proxies = [multiprocessing.Process(target=serve, args=(front_sock, serve_worker)) for x in xrange(PROXIES)]
+    proxies = [multiprocessing.Process(target=serve,
+               args=(front_sock, serve_proxy)) for x in xrange(PROXIES)]
     for worker in workers:
         worker.start()
     for proxy in proxies:

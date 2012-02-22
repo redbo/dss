@@ -1,5 +1,6 @@
 import msgpack
 import socket
+import struct
 
 
 class ProxyObject(object):
@@ -21,15 +22,24 @@ class ProxyObject(object):
 class Client(object):
     def __init__(self, host, port):
         self.sock = socket.create_connection((host, port))
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.packer = msgpack.Packer()
         self.unpacker = msgpack.Unpacker()
 
     def call(self, lookup_list, func, args, kwargs):
+        if lookup_list:
+            hash_ = abs(hash(lookup_list[0])) % 2**32
+        else:
+            hash_ = abs(hash(args[0])) % 2**32
         request = ('C', lookup_list, func, args, kwargs)
-        self.sock.sendall(self.packer.pack(request))
+        packed = self.packer.pack(request)
+        print "Sending request", len(packed), hash_, request
+        enveloped = struct.pack('II', len(packed), hash_) + packed
+        self.sock.sendall(enveloped)
         while True:
             self.unpacker.feed(self.sock.recv(65536))
             for response in self.unpacker:
+                print "Returning", response
                 return response
 
     def __getitem__(self, key):
