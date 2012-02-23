@@ -79,7 +79,7 @@ def serve_worker(sock, address):
         unpacker = StreamUnpacker()
         while True:
             obj = unpacker.readnext(sock)
-            progress_counter += 1
+            progress_counter.inc()
             op, lookup, func, args, kwargs = obj
             value = data
             for name in lookup:
