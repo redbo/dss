@@ -6,6 +6,8 @@ import time
 
 import msgpack
 
+WORKERS = 16
+
 
 class ProxyObject(object):
     def __init__(self, client, lookup_list):
@@ -64,7 +66,7 @@ if __name__ == '__main__':
     cli = Client('localhost', 12345)
     for x in xrange(5001):
         cli['something%d' % x] = {}
-    workers = [multiprocessing.Process(target=work_client, args=()) for x in xrange(16)]
+    workers = [multiprocessing.Process(target=work_client, args=()) for x in xrange(WORKERS)]
     for worker in workers:
         worker.start()
     for worker in workers:
