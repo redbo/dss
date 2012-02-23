@@ -16,7 +16,7 @@ BASE_BACKEND = 22222
 class StreamUnpacker(msgpack.Unpacker):
     def readnext(self, sock):
         while True:
-            chunk = sock.recv(READ_CHUNK)
+            chunk = sock.recv(65536)
             if not chunk:
                 raise Exception()
             self.feed(chunk)
