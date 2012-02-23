@@ -54,6 +54,7 @@ class Client(object):
 
 
 def work_client():
+    start = time.time()
     x = Client('localhost', 12345)
     while time.time() - start < 60:
         key = 'something%d' % random.randint(0, 5000)
