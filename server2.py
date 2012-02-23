@@ -40,7 +40,7 @@ def recv_to(sock, current, size):
     return current[:size], current[size:]
 
 
-backend_connection_pool = collections.DefaultDict(lambda: [])
+backend_connection_pool = collections.defaultdict(lambda: [])
 
 def serve_proxy(sock, address):
     try:
