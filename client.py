@@ -39,13 +39,11 @@ class Client(object):
             hash_ = abs(hash(args[0])) % 2**32
         request = ('C', lookup_list, func, args, kwargs)
         packed = self.packer.pack(request)
-        print "Sending request", len(packed), hash_, request
         enveloped = struct.pack('II', len(packed), hash_) + packed
         self.sock.sendall(enveloped)
         while True:
             self.unpacker.feed(self.sock.recv(65536))
             for response in self.unpacker:
-                print "Returning", response
                 return response
 
     def __getitem__(self, key):

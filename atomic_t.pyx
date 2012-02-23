@@ -24,9 +24,9 @@ cdef class AtomicT(object):
     def value(self):
         return self._value()
 
-    cdef atomic_t _inc(self, atomic_t amt=1):
+    cdef atomic_t _inc(self, atomic_t amt):
         self.data[0] += amt
         return self.data[0]
 
-    def inc(self, amt):
+    def inc(self, amt=1):
         return self._inc(amt)
