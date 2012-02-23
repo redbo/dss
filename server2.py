@@ -120,7 +120,7 @@ if __name__ == '__main__':
     proxies = [multiprocessing.Process(target=serve,
                args=(front_sock, serve_proxy)) for x in xrange(PROXIES)]
     progress = multiprocessing.Process(target=progress_report)
-        progress.start()
+    progress.start()
     for worker in workers:
         worker.start()
     for proxy in proxies:
