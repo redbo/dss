@@ -13,12 +13,16 @@ PROXIES = 8
 BASE_BACKEND = 22222
 
 
+class DisconnectError(Exception):
+    pass
+
+
 class StreamUnpacker(msgpack.Unpacker):
     def readnext(self, sock):
         while True:
             chunk = sock.recv(65536)
             if not chunk:
-                raise Exception()
+                raise DisconnectError()
             self.feed(chunk)
             for obj in self:
                 return obj
@@ -28,7 +32,7 @@ def recv_to(sock, current, size):
     while len(current) < size:
         chunk = sock.recv(65536)
         if not chunk:
-            raise Exception()
+            raise DisconnectError()
         current += chunk
     return current[:size], current[size:]
 
@@ -53,7 +57,11 @@ def serve_proxy(sock, address):
                 sock.sendall(response)
             finally:
                 backend.close()
+    except DisconnectError:
+        pass
     except Exception:
+        traceback.print_exc()
+    finally:
         sock.close()
 
 
@@ -72,7 +80,11 @@ def serve_worker(sock, address):
             resp_packed = packer.pack(resp)
             resp_enveloped = struct.pack('I', len(resp_packed)) + resp_packed
             sock.sendall(resp_enveloped)
+    except DisconnectError:
+        pass
     except Exception:
+        traceback.print_exc()
+    finally:
         sock.close()
 
 
