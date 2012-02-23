@@ -6,8 +6,6 @@ import time
 
 import msgpack
 
-import atomic_t
-
 
 class ProxyObject(object):
     def __init__(self, client, lookup_list):
@@ -60,29 +58,14 @@ def work_client():
         key = 'something%d' % random.randint(0, 5000)
         x[key]['blah'] = [1, 2, 3]
         assert 2 in x[key]['blah']
-        progress_counter.inc()
-
-
-def progress_report():
-    start = time.time()
-    last = 0
-    while time.time() - start < 60:
-        current = progress_counter.value()
-        print (last - current), "per second"
-        last = progress_counter.value()
-        time.sleep(1)
 
 
 if __name__ == '__main__':
     cli = Client('localhost', 12345)
     for x in xrange(5001):
         cli['something%d' % x] = {}
-    progress_counter = atomic_t.AtomicT()
     workers = [multiprocessing.Process(target=work_client, args=()) for x in xrange(16)]
-    progress = multiprocessing.Process(target=progress_report, args=())
-    progress.start()
     for worker in workers:
         worker.start()
     for worker in workers:
         worker.join()
-    progress.join()

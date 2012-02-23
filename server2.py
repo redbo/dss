@@ -2,6 +2,8 @@ import multiprocessing
 import struct
 import traceback
 import collections
+import atomic_t
+import time
 
 import msgpack
 from gevent.server import StreamServer
@@ -77,6 +79,7 @@ def serve_worker(sock, address):
         unpacker = StreamUnpacker()
         while True:
             obj = unpacker.readnext(sock)
+            progress_counter += 1
             op, lookup, func, args, kwargs = obj
             value = data
             for name in lookup:
@@ -98,13 +101,26 @@ def serve(sock, target):
     StreamServer(sock, target).serve_forever()
 
 
+def progress_report():
+    start = time.time()
+    last = 0
+    while True:
+        current = progress_counter.value()
+        print (current - last), "per second"
+        last = current
+        time.sleep(1)
+
+
 if __name__ == '__main__':
+    progress_counter = atomic_t.AtomicT()
     workers = [multiprocessing.Process(target=serve, args=(
         socket.tcp_listener(('127.0.0.1', BASE_BACKEND + x), backlog=50,
         reuse_addr=True), serve_worker)) for x in xrange(WORKERS)]
     front_sock = socket.tcp_listener(('', 12345), backlog=50, reuse_addr=True)
     proxies = [multiprocessing.Process(target=serve,
                args=(front_sock, serve_proxy)) for x in xrange(PROXIES)]
+    progress = multiprocessing.Process(target=progress_report)
+        progress.start()
     for worker in workers:
         worker.start()
     for proxy in proxies:
