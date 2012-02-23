@@ -16,7 +16,7 @@ PROXIES = 8
 BASE_BACKEND = 22222
 
 
-class DisconnectError(Exception):
+class DisconnectError(socket.error):
     pass
 
 
@@ -56,15 +56,13 @@ def serve_proxy(sock, address):
                 backend = backend_connection_pool[port].pop()
             except IndexError:
                 backend = socket.create_connection(('127.0.0.1', port))
-            try:
-                backend.sendall(msg)
-                packed_length, buf2 = recv_to(backend, buf2, 4)
-                length, = struct.unpack('I', packed_length)
-                response, buf2 = recv_to(backend, buf2, length)
-                sock.sendall(response)
-            finally:
-                backend_connection_pool[port].append(backend)
-    except DisconnectError:
+            backend.sendall(msg)
+            packed_length, buf2 = recv_to(backend, buf2, 4)
+            length, = struct.unpack('I', packed_length)
+            response, buf2 = recv_to(backend, buf2, length)
+            sock.sendall(response)
+            backend_connection_pool[port].append(backend)
+    except socket.error:
         pass
     except Exception:
         traceback.print_exc()
@@ -87,7 +85,7 @@ def serve_worker(sock, address):
             resp_packed = packer.pack(resp)
             resp_enveloped = struct.pack('I', len(resp_packed)) + resp_packed
             sock.sendall(resp_enveloped)
-    except DisconnectError:
+    except socket.error:
         pass
     except Exception:
         traceback.print_exc()
