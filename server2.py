@@ -1,6 +1,7 @@
 import multiprocessing
 import struct
 import traceback
+import collections
 
 import msgpack
 from gevent.server import StreamServer
@@ -39,6 +40,8 @@ def recv_to(sock, current, size):
     return current[:size], current[size:]
 
 
+backend_connection_pool = collections.DefaultDict(lambda: [])
+
 def serve_proxy(sock, address):
     try:
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -48,9 +51,11 @@ def serve_proxy(sock, address):
             packed_data, buf = recv_to(sock, buf, 8)
             length, hash_ = struct.unpack('II', packed_data)
             msg, buf = recv_to(sock, buf, length)
-
             port = int(BASE_BACKEND + (hash_ % WORKERS))
-            backend = socket.create_connection(('127.0.0.1', port))
+            try:
+                backend = backend_connection_pool[port].pop()
+            except IndexError:
+                backend = socket.create_connection(('127.0.0.1', port))
             try:
                 backend.sendall(msg)
                 packed_length, buf2 = recv_to(backend, buf2, 4)
@@ -58,7 +63,7 @@ def serve_proxy(sock, address):
                 response, buf2 = recv_to(backend, buf2, length)
                 sock.sendall(response)
             finally:
-                backend.close()
+                backend_connection_pool[port].append(backend)
     except DisconnectError:
         pass
     except Exception:
