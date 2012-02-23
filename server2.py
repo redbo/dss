@@ -12,7 +12,6 @@ PROXIES = 8
 
 BASE_BACKEND = 22222
 
-READ_CHUNK = 65536
 
 class StreamUnpacker(msgpack.Unpacker):
     def readnext(self, sock):
@@ -27,7 +26,7 @@ class StreamUnpacker(msgpack.Unpacker):
 
 def recv_to(sock, current, size):
     while len(current) < size:
-        chunk = sock.recv(READ_CHUNK)
+        chunk = sock.recv(65536)
         if not chunk:
             raise Exception()
         current += chunk
