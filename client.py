@@ -55,7 +55,7 @@ class Client(object):
 
 def work_client():
     x = Client('localhost', 12345)
-    while True:
+    while time.time() - start < 60:
         key = 'something%d' % random.randint(0, 5000)
         x[key]['blah'] = [1, 2, 3]
         assert 2 in x[key]['blah']
@@ -77,10 +77,11 @@ if __name__ == '__main__':
     for x in xrange(5001):
         cli['something%d' % x] = {}
     progress_counter = atomic_t.AtomicT()
-    workers = [multiprocessing.Process(target=work_client, args=()) for x in xrange(8)]
+    workers = [multiprocessing.Process(target=work_client, args=()) for x in xrange(16)]
     progress = multiprocessing.Process(target=progress_report, args=())
     progress.start()
     for worker in workers:
         worker.start()
     for worker in workers:
         worker.join()
+    progress.join()
