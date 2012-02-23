@@ -1,9 +1,11 @@
+import multiprocessing
+import struct
+import traceback
+
+import msgpack
 from gevent.server import StreamServer
 from gevent import socket
 import gevent
-import msgpack
-import multiprocessing
-import struct
 
 
 data = {}

@@ -60,7 +60,7 @@ def work_client():
     while True:
         key = 'something%d' % random.randint(0, 5000)
         x[key]['blah'] = [1, 2, 3]
-        print 2 in x[key]['blah']
+        assert 2 in x[key]['blah']
         progress_counter.inc()
 
 

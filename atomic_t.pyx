@@ -18,9 +18,9 @@ cdef class AtomicT:
     def __dealloc__(self):
         munmap(self.data, sizeof(atomic_t))
 
-    cdef atomic_t value(self):
+    cdef public atomic_t value(self):
         return self.data[0]
 
-    cdef atomic_t inc(self, atomic_t amt=1):
+    cdef public atomic_t inc(self, atomic_t amt=1):
         self.data[0] += amt
         return self.data[0]
