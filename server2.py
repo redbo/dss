@@ -34,40 +34,46 @@ def recv_to(sock, current, size):
 
 
 def serve_proxy(sock, address):
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    buf = ''
-    buf2 = ''
-    while True:
-        packed_data, buf = recv_to(sock, buf, 8)
-        length, hash_ = struct.unpack('II', packed_data)
-        msg, buf = recv_to(sock, buf, length)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        buf = ''
+        buf2 = ''
+        while True:
+            packed_data, buf = recv_to(sock, buf, 8)
+            length, hash_ = struct.unpack('II', packed_data)
+            msg, buf = recv_to(sock, buf, length)
 
-        port = int(BASE_BACKEND + (hash_ % WORKERS))
-        backend = socket.create_connection(('127.0.0.1', port))
-        try:
-            backend.sendall(msg)
-            packed_length, buf2 = recv_to(backend, buf2, 4)
-            length, = struct.unpack('I', packed_length)
-            response, buf2 = recv_to(backend, buf2, length)
-            sock.sendall(response)
-        finally:
-            backend.close()
+            port = int(BASE_BACKEND + (hash_ % WORKERS))
+            backend = socket.create_connection(('127.0.0.1', port))
+            try:
+                backend.sendall(msg)
+                packed_length, buf2 = recv_to(backend, buf2, 4)
+                length, = struct.unpack('I', packed_length)
+                response, buf2 = recv_to(backend, buf2, length)
+                sock.sendall(response)
+            finally:
+                backend.close()
+    except Exception:
+        sock.close()
 
 
 def serve_worker(sock, address):
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    packer = msgpack.Packer()
-    unpacker = StreamUnpacker()
-    while True:
-        obj = unpacker.readnext(sock)
-        op, lookup, func, args, kwargs = obj
-        value = data
-        for name in lookup:
-            value = value[name]
-        resp = getattr(value, func)(*args, **kwargs)
-        resp_packed = packer.pack(resp)
-        resp_enveloped = struct.pack('I', len(resp_packed)) + resp_packed
-        sock.sendall(resp_enveloped)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        packer = msgpack.Packer()
+        unpacker = StreamUnpacker()
+        while True:
+            obj = unpacker.readnext(sock)
+            op, lookup, func, args, kwargs = obj
+            value = data
+            for name in lookup:
+                value = value[name]
+            resp = getattr(value, func)(*args, **kwargs)
+            resp_packed = packer.pack(resp)
+            resp_enveloped = struct.pack('I', len(resp_packed)) + resp_packed
+            sock.sendall(resp_enveloped)
+    except Exception:
+        sock.close()
 
 
 def serve(sock, target):
