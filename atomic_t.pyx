@@ -7,7 +7,7 @@ cdef extern from "sys/mman.h":
 cdef extern from "stdint.h":
     ctypedef unsigned long atomic_t "uint64_t"
 
-cdef class AtomicT:
+cdef class AtomicT(object):
     cdef atomic_t *data
 
     def __cinit__(self, init=0):
@@ -18,9 +18,15 @@ cdef class AtomicT:
     def __dealloc__(self):
         munmap(self.data, sizeof(atomic_t))
 
-    cdef public atomic_t value(self):
+    cdef atomic_t _value(self):
         return self.data[0]
 
-    cdef public atomic_t inc(self, atomic_t amt=1):
+    def value(self):
+        return self._value()
+
+    cdef atomic_t _inc(self, atomic_t amt=1):
         self.data[0] += amt
         return self.data[0]
+
+    def inc(self, amt):
+        return self._inc(amt)
