@@ -22,6 +22,7 @@ class Connection(object):
     def __init__(self, sock):
         self.sock = sock
         self.outbuf = ''
+        self.inbuf = ''
 
 
 class StreamServer(object):
@@ -39,10 +40,15 @@ class StreamServer(object):
                     conn = conns.get(fd, None)
                     if fd == self.sock.fileno():
                         sock, address = self.sock.accept()
-                        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                        sock.setsockopt(socket.IPPROTO_TCP,
+                                        socket.TCP_NODELAY, 1)
                         epoll.register(sock.fileno(), select.EPOLLIN)
                         conns[sock.fileno()] = self.connection_class(sock)
-                    elif event == select.EPOLLIN:
+                    elif event & select.EPOLLERR:
+                        epoll.unregister(fd)
+                        del conns[fd]
+                        continue
+                    elif event & select.EPOLLIN:
                         chunk = conn.sock.recv(65536)
                         if not chunk:
                             epoll.unregister(fd)
@@ -51,7 +57,7 @@ class StreamServer(object):
                         conns[fd].feed(chunk)
                         if conns[fd].outbuf:
                             epoll.modify(fd, select.EPOLLOUT)
-                    elif event == select.EPOLLOUT:
+                    elif event & select.EPOLLOUT:
                         send_len = conn.sock.send(conn.outbuf)
                         conn.outbuf = conn.outbuf[send_len:]
                         if not conn.outbuf:
@@ -59,8 +65,6 @@ class StreamServer(object):
                     else:
                         print fd, event
                 except socket.error as err:
-                    import traceback
-                    traceback.print_exc()
                     if err.args[0] in (errno.EAGAIN, errno.EWOULDBLOCK):
                         continue
                     if fd in conns:
@@ -74,18 +78,15 @@ backend_connection_pool = collections.defaultdict(lambda: [])
 
 class ProxyConnection(Connection):
     def __init__(self, *args, **kwargs):
-        super(self, ProxyConnection).__init__(self, *args, **kwargs)
+        super(ProxyConnection, self).__init__(*args, **kwargs)
         self.response = msgpack.packb(True)
+        self.unpacker = msgpack.Unpacker()
 
     def feed(self, chunk):
-        self.inbuf += chunk
-        if len(self.inbuf) >= 8:
-            length, hash_ = struct.unpack('II', packed_data)
-            if len(self.inbuf) >= 8 + length:
-                progress_counter.inc()
-                msg = self.inbuf[8:length + 8]
-                self.inbuf = self.inbuf[8 + length:]
-                self.outbuf += self.response
+        self.unpacker.feed(chunk)
+        for obj in self.unpacker:
+            self.outbuf += self.response
+            progress_counter.inc()
 
 
 def progress_report():
