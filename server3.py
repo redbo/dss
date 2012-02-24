@@ -33,38 +33,39 @@ class StreamServer(object):
 
     def __call__(self):
         while True:
-            for (fd, event) in epoll.poll():
-                conn = conns.get(fd, None)
-                if fd == self.sock.fileno():
-                    sock, address = self.sock.accept()
-                    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                    epoll.register(sock.fileno(), select.EPOLLIN)
-                    conns[sock.fileno()] = self.connection_class(sock)
-                elif event == select.EPOLLIN:
-                    chunk = conn.sock.recv(65536)
-                    if not chunk:
-                        epoll.unregister(fd)
-                        del conns[fd]
+            for (fd, event) in self.epoll.poll():
+                try:
+                    conn = conns.get(fd, None)
+                    if fd == self.sock.fileno():
+                        sock, address = self.sock.accept()
+                        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                        self.epoll.register(sock.fileno(), select.EPOLLIN)
+                        conns[sock.fileno()] = self.connection_class(sock)
+                    elif event == select.EPOLLIN:
+                        chunk = conn.sock.recv(65536)
+                        if not chunk:
+                            self.epoll.unregister(fd)
+                            del conns[fd]
+                            continue
+                        conns[fd].feed(chunk)
+                        if conns[fd].outbuf:
+                            self.epoll.modify(fd, select.EPOLLOUT)
+                    elif event == select.EPOLLOUT:
+                        send_len = conn.sock.send(conn.outbuf)
+                        conn.outbuf = conn.outbuf[send_len:]
+                        if not conn.outbuf:
+                            self.epoll.modify(fd, select.EPOLLIN)
+                    else:
+                        print fd, event
+                except socket.error as err:
+                    import traceback
+                    traceback.print_exc()
+                    if err.args[0] in (errno.EAGAIN, errno.EWOULDBLOCK):
                         continue
-                    conns[fd].feed(chunk)
-                    if conns[fd].outbuf:
-                        epoll.modify(fd, select.EPOLLOUT)
-                elif event == select.EPOLLOUT:
-                    send_len = conn.sock.send(conn.outbuf)
-                    conn.outbuf = conn.outbuf[send_len:]
-                    if not conn.outbuf:
-                        epoll.modify(fd, select.EPOLLIN)
-                else:
-                    print fd, event
-            except socket.error as err:
-                import traceback
-                traceback.print_exc()
-                if err.args[0] in (errno.EAGAIN, errno.EWOULDBLOCK):
-                    continue
-                if fd in conns:
-                    epoll.unregister(fd)
-                    del conns[fd]
-                raise
+                    if fd in conns:
+                        self.epoll.unregister(fd)
+                        del conns[fd]
+                    raise
 
 
 backend_connection_pool = collections.defaultdict(lambda: [])
