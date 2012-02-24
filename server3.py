@@ -27,11 +27,12 @@ class Connection(object):
 class StreamServer(object):
     def __init__(self, sock, connection_class):
         self.sock = sock
-        self.epoll = select.epoll()
-        self.epoll.register(sock.fileno(), select.EPOLLIN)
         self.connection_class = connection_class
 
     def __call__(self):
+        epoll = select.epoll()
+        epoll.register(sock.fileno(), select.EPOLLIN)
+        conns = {}
         while True:
             for (fd, event) in self.epoll.poll():
                 try:
