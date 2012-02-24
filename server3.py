@@ -31,7 +31,7 @@ class StreamServer(object):
 
     def __call__(self):
         epoll = select.epoll()
-        epoll.register(sock.fileno(), select.EPOLLIN)
+        epoll.register(self.sock.fileno(), select.EPOLLIN)
         conns = {}
         while True:
             for (fd, event) in self.epoll.poll():
