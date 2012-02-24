@@ -34,28 +34,28 @@ class StreamServer(object):
         epoll.register(self.sock.fileno(), select.EPOLLIN)
         conns = {}
         while True:
-            for (fd, event) in self.epoll.poll():
+            for (fd, event) in epoll.poll():
                 try:
                     conn = conns.get(fd, None)
                     if fd == self.sock.fileno():
                         sock, address = self.sock.accept()
                         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                        self.epoll.register(sock.fileno(), select.EPOLLIN)
+                        epoll.register(sock.fileno(), select.EPOLLIN)
                         conns[sock.fileno()] = self.connection_class(sock)
                     elif event == select.EPOLLIN:
                         chunk = conn.sock.recv(65536)
                         if not chunk:
-                            self.epoll.unregister(fd)
+                            epoll.unregister(fd)
                             del conns[fd]
                             continue
                         conns[fd].feed(chunk)
                         if conns[fd].outbuf:
-                            self.epoll.modify(fd, select.EPOLLOUT)
+                            epoll.modify(fd, select.EPOLLOUT)
                     elif event == select.EPOLLOUT:
                         send_len = conn.sock.send(conn.outbuf)
                         conn.outbuf = conn.outbuf[send_len:]
                         if not conn.outbuf:
-                            self.epoll.modify(fd, select.EPOLLIN)
+                            epoll.modify(fd, select.EPOLLIN)
                     else:
                         print fd, event
                 except socket.error as err:
@@ -64,7 +64,7 @@ class StreamServer(object):
                     if err.args[0] in (errno.EAGAIN, errno.EWOULDBLOCK):
                         continue
                     if fd in conns:
-                        self.epoll.unregister(fd)
+                        epoll.unregister(fd)
                         del conns[fd]
                     raise
 
