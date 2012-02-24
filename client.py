@@ -34,11 +34,11 @@ class Client(object):
 
     def call(self, lookup_list, func, args, kwargs):
         if lookup_list:
-            hash_ = abs(hash(lookup_list[0])) % 2**32
+            hsh = abs(hash(lookup_list[0])) % 2**32
         else:
-            hash_ = abs(hash(args[0])) % 2**32
+            hsh = abs(hash(args[0])) % 2**32
         request = ('C', lookup_list, func, args, kwargs)
-        self.sock.sendall(self.packer.pack(hash_, self.packer.pack(request)))
+        self.sock.sendall(self.packer.pack((hsh, self.packer.pack(request))))
         while True:
             self.unpacker.feed(self.sock.recv(65536))
             for response in self.unpacker:
