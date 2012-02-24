@@ -5,6 +5,7 @@ import collections
 import time
 import select
 import socket
+import errno
 
 import msgpack
 
